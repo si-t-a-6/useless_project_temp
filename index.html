@@ -1,1 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>It's Giving — AI Reaction Studio</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #08090d;
+      color: #f5f7fb;
+    }
+    button { font: inherit; }
+    .app { min-height: 100vh; padding: 22px; }
+    .topbar {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 18px; margin-bottom: 22px;
+    }
+    .brand { display:flex; align-items:center; gap:12px; }
+    .logo {
+      width: 44px; height:44px; border-radius:14px;
+      display:grid; place-items:center; font-size:22px; font-weight:900;
+      background: linear-gradient(135deg,#8b5cf6,#ec4899);
+    }
+    .brand h1 { margin:0; font-size:20px; }
+    .brand p { margin:3px 0 0; color:#8f96a8; font-size:12px; }
+    .status {
+      display:flex; align-items:center; gap:8px; padding:9px 13px;
+      border:1px solid #242936; border-radius:999px; color:#b8bfce; font-size:12px;
+      background:#101219;
+    }
+    .dot { width:8px; height:8px; border-radius:50%; background:#555b68; }
+    .dot.live { background:#22c55e; box-shadow:0 0 12px #22c55e; }
+
+    .layout {
+      display:grid; grid-template-columns:minmax(0, 1.6fr) minmax(300px,.75fr);
+      gap:20px; max-width:1450px; margin:auto;
+    }
+    .card {
+      background:#101219; border:1px solid #222733; border-radius:20px;
+      box-shadow:0 18px 50px rgba(0,0,0,.22);
+    }
+    .camera-card { overflow:hidden; }
+    .camera-head {
+      padding:16px 18px; display:flex; justify-content:space-between; align-items:center;
+      border-bottom:1px solid #222733;
+    }
+    .camera-head strong { font-size:14px; }
+    .camera-head span { color:#777f91; font-size:12px; }
+    .video-wrap {
+      position:relative; background:#050608; aspect-ratio:16/10;
+      min-height:430px; display:grid; place-items:center; overflow:hidden;
+    }
+    video {
+      width:100%; height:100%; object-fit:cover; display:none;
+      transform:scaleX(-1);
+    }
+    .placeholder { text-align:center; color:#8b92a2; padding:30px; }
+    .placeholder .cam-icon { font-size:55px; margin-bottom:12px; }
+    .placeholder h2 { color:#e8ebf2; margin:0 0 7px; font-size:19px; }
+    .placeholder p { margin:0; font-size:13px; line-height:1.6; }
+    .live-badge {
+      position:absolute; top:14px; left:14px; display:none; align-items:center; gap:7px;
+      background:rgba(8,9,13,.82); border:1px solid #2c313c; padding:7px 10px;
+      border-radius:999px; font-size:11px; backdrop-filter:blur(8px);
+    }
+    .reaction-overlay {
+      position:absolute; left:18px; right:18px; bottom:18px;
+      background:rgba(8,9,13,.83); border:1px solid #303541; border-radius:15px;
+      padding:13px 15px; backdrop-filter:blur(12px);
+    }
+    .reaction-label { color:#9299a9; font-size:10px; text-transform:uppercase; letter-spacing:.12em; }
+    .reaction-name { font-size:25px; font-weight:850; margin-top:2px; }
+    .reaction-name span { font-size:15px; color:#a9afbd; font-weight:500; }
+    .controls {
+      padding:15px 18px; display:flex; flex-wrap:wrap; gap:9px; border-top:1px solid #222733;
+    }
+    .btn {
+      border:1px solid #303542; background:#171a22; color:#e9ecf3;
+      padding:10px 14px; border-radius:11px; cursor:pointer; transition:.15s;
+    }
+    .btn:hover { background:#20242e; transform:translateY(-1px); }
+    .btn.primary { background:#7c3aed; border-color:#8b5cf6; }
+    .btn.primary:hover { background:#8b5cf6; }
+    .btn.danger { background:#2a141a; border-color:#51202b; color:#ff9caf; }
+
+    .side { display:flex; flex-direction:column; gap:16px; }
+    .panel { padding:18px; }
+    .panel h3 { margin:0 0 15px; font-size:14px; }
+    .metric {
+      display:flex; justify-content:space-between; align-items:center;
+      padding:12px 0; border-bottom:1px solid #20242d; font-size:13px;
+    }
+    .metric:last-child { border-bottom:0; }
+    .muted { color:#818898; }
+    .value { font-weight:750; }
+    .confidence { margin-top:12px; }
+    .bar { height:7px; background:#242936; border-radius:99px; overflow:hidden; }
+    .fill { width:0%; height:100%; background:linear-gradient(90deg,#8b5cf6,#ec4899); transition:.3s; }
+    .confidence-row { display:flex; justify-content:space-between; margin-bottom:7px; font-size:11px; color:#969dae; }
+    .switch-row { display:flex; justify-content:space-between; align-items:center; margin:12px 0; font-size:13px; }
+    input[type=checkbox] { accent-color:#8b5cf6; width:17px; height:17px; }
+    .history { max-height:190px; overflow:auto; }
+    .history-item {
+      display:flex; justify-content:space-between; gap:12px; padding:9px 0;
+      border-bottom:1px solid #20242d; font-size:12px;
+    }
+    .history-item:last-child { border:0; }
+    .empty { color:#737b8c; font-size:12px; }
+    .reaction-grid { display:flex; flex-wrap:wrap; gap:7px; }
+    .tag {
+      border:1px solid #2c313c; background:#171a22; color:#c5cad5;
+      border-radius:999px; padding:7px 9px; font-size:11px;
+    }
+    .footer { text-align:center; color:#626a7b; font-size:11px; padding:20px 0 5px; }
+    .toast {
+      position:fixed; right:22px; bottom:22px; background:#171a22;
+      border:1px solid #353b49; padding:12px 15px; border-radius:12px;
+      opacity:0; transform:translateY(10px); pointer-events:none; transition:.2s;
+      font-size:12px; z-index:20;
+    }
+    .toast.show { opacity:1; transform:none; }
+
+    @media(max-width:900px) {
+      .layout { grid-template-columns:1fr; }
+      .video-wrap { min-height:320px; }
+    }
+    @media(max-width:600px) {
+      .app { padding:12px; }
+      .topbar { align-items:flex-start; }
+      .video-wrap { min-height:250px; }
+      .reaction-name { font-size:20px; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">IG</div>
+      <div>
+        <h1>It's Giving</h1>
+        <p>AI Reaction Studio</p>
+      </div>
+    </div>
+    <div class="status"><span id="statusDot" class="dot"></span><span id="statusText">Camera offline</span></div>
+  </header>
+
+  <main class="layout">
+    <section class="card camera-card">
+      <div class="camera-head">
+        <div><strong>Live Camera</strong><br><span>Browser-based AI interaction</span></div>
+        <span id="fps">Ready</span>
+      </div>
+
+      <div class="video-wrap">
+        <video id="camera" autoplay playsinline></video>
+        <div id="placeholder" class="placeholder">
+          <div class="cam-icon">📷</div>
+          <h2>Camera is ready</h2>
+          <p>Click <b>Start Camera</b> and allow camera permission<br>to begin the experience.</p>
+        </div>
+        <div id="liveBadge" class="live-badge"><span class="dot live"></span> LIVE</div>
+
+        <div class="reaction-overlay">
+          <div class="reaction-label">Current reaction</div>
+          <div id="reactionName" class="reaction-name">Waiting… <span>Start the camera</span></div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="startBtn" class="btn primary">▶ Start Camera</button>
+        <button id="stopBtn" class="btn danger">■ Stop</button>
+        <button id="calibrateBtn" class="btn">🎯 Calibrate</button>
+        <button id="skeletonBtn" class="btn">👁 Skeleton: ON</button>
+        <button id="soundBtn" class="btn">🔊 Sound: ON</button>
+      </div>
+    </section>
+
+    <aside class="side">
+      <section class="card panel">
+        <h3>Detection Status</h3>
+        <div class="metric"><span class="muted">AI Engine</span><span id="engine" class="value">Ready</span></div>
+        <div class="metric"><span class="muted">Face</span><span id="face" class="value">—</span></div>
+        <div class="metric"><span class="muted">Hands</span><span id="hands" class="value">—</span></div>
+        <div class="metric"><span class="muted">Pose</span><span id="pose" class="value">—</span></div>
+        <div class="confidence">
+          <div class="confidence-row"><span>Reaction confidence</span><b id="confidenceText">0%</b></div>
+          <div class="bar"><div id="confidenceFill" class="fill"></div></div>
+        </div>
+      </section>
+
+      <section class="card panel">
+        <h3>Quick Settings</h3>
+        <div class="switch-row"><span>Auto reactions</span><input id="autoReaction" type="checkbox" checked></div>
+        <div class="switch-row"><span>Show roast message</span><input id="roastToggle" type="checkbox" checked></div>
+        <div class="switch-row"><span>Mirror camera</span><input id="mirrorToggle" type="checkbox" checked></div>
+        <button id="learnBtn" class="btn" style="width:100%;margin-top:7px;">＋ Learn New Reaction</button>
+      </section>
+
+      <section class="card panel">
+        <h3>Available Reactions</h3>
+        <div id="reactionTags" class="reaction-grid"></div>
+      </section>
+
+      <section class="card panel">
+        <h3>Reaction History</h3>
+        <div id="history" class="history"><div class="empty">No reactions yet.</div></div>
+      </section>
+    </aside>
+  </main>
+
+  <div class="footer">It's Giving • AI-powered reaction detection • Web demo</div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+  const video = document.getElementById("camera");
+  const placeholder = document.getElementById("placeholder");
+  const liveBadge = document.getElementById("liveBadge");
+  const statusDot = document.getElementById("statusDot");
+  const statusText = document.getElementById("statusText");
+  const reactionName = document.getElementById("reactionName");
+  const history = document.getElementById("history");
+  const toast = document.getElementById("toast");
+
+  let stream = null;
+  let soundOn = true;
+  let skeletonOn = true;
+  let mirrorOn = true;
+  let previousReaction = null;
+  const reactionList = [
+    "time_out","heart","cover_nose","crashing_out","dance","nose_closed",
+    "flirty","hand_up","tongue_out","open_mouth","disgusted",
+    "talking_to_wall","suspicious","spin"
+  ];
+
+  reactionList.forEach(r => {
+    const el = document.createElement("span");
+    el.className = "tag";
+    el.textContent = r.replaceAll("_"," ");
+    document.getElementById("reactionTags").appendChild(el);
+  });
+
+  function showToast(message) {
+    toast.textContent = message;
+    toast.classList.add("show");
+    setTimeout(() => toast.classList.remove("show"), 2200);
+  }
+
+  function setStatus(live) {
+    statusDot.classList.toggle("live", live);
+    statusText.textContent = live ? "Camera live" : "Camera offline";
+    document.getElementById("engine").textContent = live ? "Running" : "Ready";
+    document.getElementById("fps").textContent = live ? "LIVE" : "Ready";
+  }
+
+  async function startCamera() {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" },
+        audio: false
+      });
+      video.srcObject = stream;
+      video.style.display = "block";
+      placeholder.style.display = "none";
+      liveBadge.style.display = "flex";
+      setStatus(true);
+      document.getElementById("face").textContent = "Ready";
+      document.getElementById("hands").textContent = "Ready";
+      document.getElementById("pose").textContent = "Ready";
+      showToast("Camera started");
+    } catch (err) {
+      showToast("Camera permission was denied or unavailable.");
+      console.error(err);
+    }
+  }
+
+  function stopCamera() {
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    stream = null;
+    video.srcObject = null;
+    video.style.display = "none";
+    placeholder.style.display = "block";
+    liveBadge.style.display = "none";
+    setStatus(false);
+    document.getElementById("face").textContent = "—";
+    document.getElementById("hands").textContent = "—";
+    document.getElementById("pose").textContent = "—";
+    reactionName.innerHTML = "Waiting… <span>Start the camera</span>";
+    showToast("Camera stopped");
+  }
+
+  function addHistory(reaction, confidence) {
+    if (history.querySelector(".empty")) history.innerHTML = "";
+    const row = document.createElement("div");
+    row.className = "history-item";
+    row.innerHTML = `<b>${reaction.replaceAll("_"," ")}</b><span class="muted">${confidence}%</span>`;
+    history.prepend(row);
+    while (history.children.length > 8) history.lastElementChild.remove();
+  }
+
+  document.getElementById("startBtn").onclick = startCamera;
+  document.getElementById("stopBtn").onclick = stopCamera;
+
+  document.getElementById("calibrateBtn").onclick = () => {
+    if (!stream) return showToast("Start the camera first.");
+    showToast("Calibration started — hold a neutral pose.");
+    document.getElementById("engine").textContent = "Calibrating…";
+    setTimeout(() => {
+      document.getElementById("engine").textContent = "Running";
+      showToast("Calibration complete");
+    }, 1800);
+  };
+
+  document.getElementById("skeletonBtn").onclick = (e) => {
+    skeletonOn = !skeletonOn;
+    e.target.textContent = `👁 Skeleton: ${skeletonOn ? "ON" : "OFF"}`;
+    showToast(`Skeleton display ${skeletonOn ? "enabled" : "disabled"}`);
+  };
+
+  document.getElementById("soundBtn").onclick = (e) => {
+    soundOn = !soundOn;
+    e.target.textContent = `${soundOn ? "🔊" : "🔇"} Sound: ${soundOn ? "ON" : "OFF"}`;
+  };
+
+  document.getElementById("mirrorToggle").onchange = (e) => {
+    mirrorOn = e.target.checked;
+    video.style.transform = mirrorOn ? "scaleX(-1)" : "scaleX(1)";
+  };
+
+  document.getElementById("learnBtn").onclick = () => {
+    if (!stream) return showToast("Start the camera first.");
+    showToast("Learning mode ready — connect your reaction model here.");
+  };
+
+  // Demo reaction button behavior. Replace this section with the real
+  // MediaPipe/model output when the detection engine is connected.
+  let demoTimer = null;
+  function demoReaction() {
+    if (!stream || !document.getElementById("autoReaction").checked) return;
+    const reaction = reactionList[Math.floor(Math.random() * reactionList.length)];
+    const confidence = Math.floor(72 + Math.random() * 25);
+    if (reaction !== previousReaction) {
+      previousReaction = reaction;
+      reactionName.innerHTML = `${reaction.replaceAll("_"," ")} <span>• detected</span>`;
+      document.getElementById("confidenceText").textContent = confidence + "%";
+      document.getElementById("confidenceFill").style.width = confidence + "%";
+      addHistory(reaction, confidence);
+    }
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) return;
+  });
+
+  // Keep the demo UI alive until the actual AI detector is wired in.
+  demoTimer = setInterval(demoReaction, 2600);
+</script>
+</body>
+</html>
 
